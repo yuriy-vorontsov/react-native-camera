@@ -1355,7 +1355,7 @@ BOOL _sessionInterrupted = NO;
                 RCTLogWarn(@"Audio device could not set inactive: %s: %@", __func__, error);
             }
         }
-        
+
         self.audioCaptureDeviceInput = nil;
 
         // inform that audio was interrupted
@@ -1459,7 +1459,7 @@ BOOL _sessionInterrupted = NO;
         }
         else{
             RCTLog(@"The selected device does not work with the Preset [%@] or configuration provided", self.session.sessionPreset);
-            
+
             [self onMountingError:@{@"message": @"Camera device does not support selected settings."}];
         }
 
@@ -2105,8 +2105,14 @@ BOOL _sessionInterrupted = NO;
             _finishedDetectingFace = false;
             self.startFace = [NSDate date];
             [self.faceDetector findFacesInFrame:image scaleX:scaleX scaleY:scaleY completed:^(NSArray * faces) {
-                NSDictionary *eventFace = @{@"type" : @"face", @"faces" : faces};
-                [self onFacesDetected:eventFace];
+                NSString *base64String;
+                if ([faces count] > 0) {
+                    base64String = [UIImageJPEGRepresentation(image, 1.0) base64EncodedStringWithOptions:NSDataBase64Encoding64CharacterLineLength];
+                } else {
+                    base64String = @"";
+                }
+
+                [self onFacesDetected:@{@"type" : @"face", @"faces" : faces, @"base64" : base64String}];
                 self.finishedDetectingFace = true;
             }];
         }
@@ -2128,4 +2134,3 @@ BOOL _sessionInterrupted = NO;
 }
 
 @end
-

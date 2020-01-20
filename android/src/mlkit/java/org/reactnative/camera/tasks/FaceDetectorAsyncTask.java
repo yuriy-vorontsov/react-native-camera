@@ -1,5 +1,13 @@
 package org.reactnative.camera.tasks;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.ImageFormat;
+import android.graphics.Rect;
+import android.graphics.Matrix;
+import android.graphics.YuvImage;
+import android.util.Log;
+import android.util.Base64;
 import android.util.Log;
 
 import com.facebook.react.bridge.Arguments;
@@ -18,6 +26,10 @@ import org.reactnative.facedetector.FaceDetectorUtils;
 import org.reactnative.facedetector.RNFaceDetector;
 
 import java.util.List;
+import java.io.ByteArrayOutputStream;
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.lang.NullPointerException;
 
 public class FaceDetectorAsyncTask extends android.os.AsyncTask<Void, Void, Void> {
   private byte[] mImageData;
@@ -65,6 +77,7 @@ public class FaceDetectorAsyncTask extends android.os.AsyncTask<Void, Void, Void
     if (isCancelled() || mDelegate == null || mFaceDetector == null) {
       return null;
     }
+
     FirebaseVisionImageMetadata metadata = new FirebaseVisionImageMetadata.Builder()
             .setWidth(mWidth)
             .setHeight(mHeight)
@@ -80,7 +93,49 @@ public class FaceDetectorAsyncTask extends android.os.AsyncTask<Void, Void, Void
                       @Override
                       public void onSuccess(List<FirebaseVisionFace> faces) {
                         WritableArray facesList = serializeEventData(faces);
-                        mDelegate.onFacesDetected(facesList);
+
+                        // generate base64String
+                        String base64String = "";
+                        if (facesList.size() > 0) {
+                          ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                          try {
+                            // Decode image from the retrieved buffer to JPEG
+                            YuvImage image = new YuvImage(mImageData, ImageFormat.NV21, mWidth, mHeight, null);
+                            image.compressToJpeg(new Rect(0, 0, mWidth, mHeight), 100, outputStream);
+
+                            if (mRotation > 0) {
+                              // This is the same image as the preview but in JPEG and not rotated
+                              byte[] rawImage = outputStream.toByteArray();
+                              Bitmap bitmap = BitmapFactory.decodeByteArray(rawImage, 0, rawImage.length);
+
+                              Matrix matrix = new Matrix();
+                              matrix.postRotate(mRotation);
+
+                              // We dump the rotated Bitmap to the stream
+                              ByteArrayOutputStream rotatedStream = new ByteArrayOutputStream();
+                              bitmap = Bitmap.createBitmap(bitmap, 0, 0, mWidth, mHeight, matrix, false);
+                              bitmap.compress(Bitmap.CompressFormat.JPEG, 100, rotatedStream);
+                              base64String = Base64.encodeToString(rotatedStream.toByteArray(), Base64.NO_WRAP);
+
+                            } else {
+                              base64String = Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP);
+                            }
+
+                          } catch (NullPointerException e) {
+                            // skip
+                            Log.e("RNCamera+", "problem compressing jpeg: ", e);
+
+                          } finally {
+                            try {
+                              outputStream.close();
+                            } catch (IOException e) {
+                              Log.e("RNCamera+", "problem compressing jpeg: ", e);
+                            }
+                          }
+                        }
+                        // end of generate base64String
+
+                        mDelegate.onFacesDetected(facesList, base64String);
                         mDelegate.onFaceDetectingTaskCompleted();
                       }
                     })

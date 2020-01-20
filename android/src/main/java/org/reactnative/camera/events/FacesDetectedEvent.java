@@ -14,21 +14,23 @@ public class FacesDetectedEvent extends Event<FacesDetectedEvent> {
       new Pools.SynchronizedPool<>(3);
 
   private WritableArray mData;
+  private String mBase64Image;
 
   private FacesDetectedEvent() {}
 
-  public static FacesDetectedEvent obtain(int viewTag, WritableArray data) {
+  public static FacesDetectedEvent obtain(int viewTag, WritableArray data, String base64Image) {
     FacesDetectedEvent event = EVENTS_POOL.acquire();
     if (event == null) {
       event = new FacesDetectedEvent();
     }
-    event.init(viewTag, data);
+    event.init(viewTag, data, base64Image);
     return event;
   }
 
-  private void init(int viewTag, WritableArray data) {
+  private void init(int viewTag, WritableArray data, String base64Image) {
     super.init(viewTag);
     mData = data;
+    mBase64Image = base64Image;
   }
 
   /**
@@ -59,6 +61,7 @@ public class FacesDetectedEvent extends Event<FacesDetectedEvent> {
     WritableMap event = Arguments.createMap();
     event.putString("type", "face");
     event.putArray("faces", mData);
+    event.putString("base64", mBase64Image);
     event.putInt("target", getViewTag());
     return event;
   }
